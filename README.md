@@ -3,30 +3,36 @@
 
 ## Usage
 ```
-usage: metamap.py [-h] [--display-output] [--module-options MODULE_OPTIONS]
-                  [--filter [SUBNET [SUBNET ...]]]
-                  input-file output-file module-path
+usage: metamap.py [-h] (--xml-file XML_FILE | --regex-file REGEX_FILE)
+                  [--filter [SUBNET [SUBNET ...]]] [--display-output]
+                  [--module-options MODULE_OPTIONS]
+                  output-file module-path
 
-Run the IP addresses in a Nmap xml file through a Metasploit module.
+Run the IP addresses in a Nmap xml file or any file containing IP addresses
+through a Metasploit module.
 
 positional arguments:
-  input-file            Nmap xml file containing scan results
   output-file           File to contain the Metasploit module output
   module-path           Full path to the module e.g.
                         "auxiliary/scanner/rdp/cve_2019_0708_bluekeep"
 
 optional arguments:
   -h, --help            show this help message and exit
+  --xml-file XML_FILE, -x XML_FILE
+                        Nmap xml file containing scan results
+  --regex-file REGEX_FILE, -r REGEX_FILE
+                        Any file containing seperated IP addresses. IP
+                        addresses will be captured using a regular expression
+  --filter [SUBNET [SUBNET ...]], -f [SUBNET [SUBNET ...]]
+                        Subnet to exclude from the scan e.g. "10.10.10.0/24
+                        10.11.0.0/16"
   --display-output, -d  Display Metasploit output
   --module-options MODULE_OPTIONS, -m MODULE_OPTIONS
                         Semi-colon seperated commands to set options e.g. "set
                         ShowProgressPercent 1; set VERBOSE true;"
-  --filter [SUBNET [SUBNET ...]], -f [SUBNET [SUBNET ...]]
-                        Subnet to exclude from the scan e.g. "10.10.10.0/24
-                        10.11.0.0/16"
 ```
 
 ## Example
 ```
-python3 metamap.py --filter 10.10.10.0/24 10.11.0.0/16 -m "set showprogressPercent 1; set VERBOSE true;" rdp.xml out.txt auxiliary/scanner/rdp/cve_2019_0708_bluekeep
+python3 metamap.py --xml-file rdp.xml --filter 10.10.10.0/24 10.11.0.0/16 --module-options "set showprogressPercent 1; set VERBOSE true;" out.txt "auxiliary/scanner/rdp/cve_2019_0708_bluekeep"
 ```
