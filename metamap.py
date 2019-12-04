@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
 
 import argparse
-import xmltodict
 import subprocess
 import tempfile
+import re
+import mmap
+import xmltodict
 
 from ipaddress import ip_network
 
 def main():
     args = init_argparse()
 
-    ip_list = xml_to_ips(args.input_file)
+    ip_list = []
+    if args.xml_file:
+        ip_list = xml_to_ips(args.xml_file)
+    else:
+        ip_list = ip_list_from_re(args.regex_file)
 
     if args.filter_subnets:
         filtered_ips = filter_out_hosts(ip_list, args.filter_subnets)
@@ -21,11 +27,7 @@ def main():
 
 def init_argparse():
     parser = argparse.ArgumentParser(
-        description='Run the IP addresses in a Nmap xml file through a Metasploit module.')
-
-    parser.add_argument('input_file', type=str,
-                        metavar='input-file',
-                        help='Nmap xml file containing scan results')
+        description='Run the IP addresses in a Nmap xml file or any file containing IP addresses through a Metasploit module.')
 
     parser.add_argument('output_file', type=str,
                         metavar='output-file',
@@ -35,12 +37,16 @@ def init_argparse():
                         metavar='module-path',
                         help='Full path to the module e.g. "auxiliary/scanner/rdp/cve_2019_0708_bluekeep"')
 
-    parser.add_argument('--display-output', '-d',
-                        action='store_true',
-                        help='Display Metasploit output')
+    exclusive_file_group = parser.add_mutually_exclusive_group(required=True)
 
-    parser.add_argument('--module-options', '-m', type=str,
-                        help='Semi-colon seperated commands to set options e.g. "set ShowProgressPercent 1; set VERBOSE true;"')
+    exclusive_file_group.add_argument('--xml-file', '-x', type=str,
+                        dest='xml_file',
+                        help='Nmap xml file containing scan results')
+
+    exclusive_file_group.add_argument('--regex-file', '-r', type=str,
+                        dest='regex_file',
+                        help='Any file containing seperated IP addresses. IP addresses will be captured\
+                              using a regular expression')
 
     parser.add_argument('--filter', '-f', type=str,
                         dest='filter_subnets',
@@ -48,9 +54,29 @@ def init_argparse():
                         nargs='*',
                         help='Subnet to exclude from the scan e.g. "10.10.10.0/24 10.11.0.0/16"')
 
+    parser.add_argument('--display-output', '-d',
+                        action='store_true',
+                        help='Display Metasploit output')
+
+    parser.add_argument('--module-options', '-m', type=str,
+                        help='Semi-colon seperated commands to set options e.g. "set ShowProgressPercent 1; set VERBOSE true;"')
+
     args = parser.parse_args()
     return args
 
+def ip_list_from_re(filename):
+    """
+    Extract all of the scanned IP addresses
+    from a Nmap gnmap file to a list.
+    """
+
+    with open(filename, 'r+b') as f:
+        data = mmap.mmap(f.fileno(), 0)
+        ips = re.findall(b'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', data)
+        ips = [ip.decode() for ip in ips]
+        ips = list(set(ips))
+
+    return ips
 
 def xml_to_ips(filename):
     """
