@@ -2,7 +2,7 @@
 ### A simple Python script to run a Metasploit module over the hosts in an Nmap scan
 
 ## Usage
-```text
+```
 usage: metamap.py [-h] [--display-output] [--module-options MODULE_OPTIONS]
                   [--filter [SUBNET [SUBNET ...]]]
                   input-file output-file module-path
@@ -27,6 +27,6 @@ optional arguments:
 ```
 
 ## Example
-```python
+```
 python3 metamap.py --filter 10.10.10.0/24 10.11.0.0/16 -m "set showprogressPercent 1; set VERBOSE true;" rdp.xml out.txt auxiliary/scanner/rdp/cve_2019_0708_bluekeep
 ```
