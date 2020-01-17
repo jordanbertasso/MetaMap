@@ -1,27 +1,46 @@
-#!/usr/bin/env python3
+#!python3
 
-import argparse
-import subprocess
-import tempfile
-import re
-import mmap
-import xmltodict
+# metamap.py - Run the IP addresses in a Nmap xml file or any file containing IP addresses through a Metasploit module.
+# Copyright (C) 2020 Jordan Bertasso
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import argparse, subprocess, tempfile, re, mmap, xmltodict, logging
 from ipaddress import ip_network
+
 
 def main():
     args = init_argparse()
+    if args.debug:
+        logging.basicConfig(level='DEBUG')
 
     ip_list = []
     if args.xml_file:
         ip_list = xml_to_ips(args.xml_file)
-    else:
+    elif args.regex_file:
         ip_list = ip_list_from_re(args.regex_file)
+    else:
+        ip_list = [args.target_ip]
+    logging.debug(ip_list)
 
+    filtered_ips = []
     if args.filter_subnets:
         filtered_ips = filter_out_hosts(ip_list, args.filter_subnets)
+    else:
+        filtered_ips = ip_list
 
-    run_module(args.module_path, filtered_ips, args.output_file, args.module_options, args.display_output)
+    run_module(args.module_path, filtered_ips, args.output_file, args.module_options, args.verbose)
     
     return
 
@@ -48,15 +67,23 @@ def init_argparse():
                         help='Any file containing seperated IP addresses. IP addresses will be captured\
                               using a regular expression')
 
+    exclusive_file_group.add_argument('--target', '-t', type=str,
+                        dest='target_ip',
+                        help='Single target IP')
+
     parser.add_argument('--filter', '-f', type=str,
                         dest='filter_subnets',
                         metavar='SUBNET',
                         nargs='*',
                         help='Subnet to exclude from the scan e.g. "10.10.10.0/24 10.11.0.0/16"')
 
-    parser.add_argument('--display-output', '-d',
+    parser.add_argument('--verbose', '-v',
                         action='store_true',
                         help='Display Metasploit output')
+
+    parser.add_argument('--debug', '-d',
+                        action='store_true',
+                        help='Display debug output')
 
     parser.add_argument('--module-options', '-m', type=str,
                         help='Semi-colon seperated commands to set options e.g. "set ShowProgressPercent 1; set VERBOSE true;"')
@@ -119,7 +146,7 @@ def filter_out_hosts(host_list, subnets):
     return filtered_list
 
 
-def run_module(module_path, ip_list, output_file, module_options, display_output):
+def run_module(module_path, ip_list, output_file, module_options, verbose):
     """
     Run a Metasploit module based on the `module_path`,
     with:
@@ -127,7 +154,7 @@ def run_module(module_path, ip_list, output_file, module_options, display_output
     EXTRA OPTIONS: `module_options`
     $ spool `output_file`
 
-    `display_output` will decide whether the Metasploits
+    `verbose` will decide whether the Metasploits
     output is printed to the terminal or not.
     """
 
@@ -136,13 +163,13 @@ def run_module(module_path, ip_list, output_file, module_options, display_output
         f.write(f'{ip}\n')
     f.close()
 
-    print(f'[IP LIST]: {f.name}')
+    logging.debug(f'[IP LIST]: {f.name}')
 
     args = ['msfconsole', '-qx',
             f'use {module_path}; set rhosts file:{f.name}; {module_options}; spool {output_file}; run; exit;']
-    print(f'[RUNNING]: {"".join(args)}')
+    logging.debug(f'[RUNNING]: {" ".join(args)}')
 
-    if display_output:
+    if verbose:
         p = subprocess.Popen(args)
         p.communicate() 
     else:
